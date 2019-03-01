@@ -17,15 +17,16 @@
 package org.apache.dubbo.config.spring;
 
 import org.apache.dubbo.common.Constants;
+import org.apache.dubbo.common.utils.CollectionUtils;
 import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.config.ApplicationConfig;
+import org.apache.dubbo.config.ConfigCenterConfig;
 import org.apache.dubbo.config.ConsumerConfig;
 import org.apache.dubbo.config.MetadataReportConfig;
 import org.apache.dubbo.config.ModuleConfig;
 import org.apache.dubbo.config.MonitorConfig;
 import org.apache.dubbo.config.ReferenceConfig;
 import org.apache.dubbo.config.RegistryConfig;
-import org.apache.dubbo.config.RegistryDataConfig;
 import org.apache.dubbo.config.annotation.Reference;
 import org.apache.dubbo.config.spring.extension.SpringExtensionFactory;
 import org.apache.dubbo.config.support.Parameter;
@@ -111,12 +112,10 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
             if (applicationConfigMap != null && applicationConfigMap.size() > 0) {
                 ApplicationConfig applicationConfig = null;
                 for (ApplicationConfig config : applicationConfigMap.values()) {
-                    if (config.isDefault() == null || config.isDefault()) {
-                        if (applicationConfig != null) {
-                            throw new IllegalStateException("Duplicate application configs: " + applicationConfig + " and " + config);
-                        }
-                        applicationConfig = config;
+                    if (applicationConfig != null) {
+                        throw new IllegalStateException("Duplicate application configs: " + applicationConfig + " and " + config);
                     }
+                    applicationConfig = config;
                 }
                 if (applicationConfig != null) {
                     setApplication(applicationConfig);
@@ -142,32 +141,32 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
             }
         }
 
-        if (StringUtils.isEmpty(getRegistryLiteral())) {
-            if (getApplication() != null && StringUtils.isNotEmpty(getApplication().getRegistryLiteral())) {
-                setRegistry(getApplication().getRegistryLiteral());
+        if (StringUtils.isEmpty(getRegistryIds())) {
+            if (getApplication() != null && StringUtils.isNotEmpty(getApplication().getRegistryIds())) {
+                setRegistryIds(getApplication().getRegistryIds());
             }
-            if (getConsumer() != null && StringUtils.isNotEmpty(getConsumer().getRegistryLiteral())) {
-                setRegistry(getConsumer().getRegistryLiteral());
+            if (getConsumer() != null && StringUtils.isNotEmpty(getConsumer().getRegistryIds())) {
+                setRegistryIds(getConsumer().getRegistryIds());
             }
         }
 
-        if ((getRegistries() == null || getRegistries().isEmpty())
-                && (getConsumer() == null || getConsumer().getRegistries() == null || getConsumer().getRegistries().isEmpty())
-                && (getApplication() == null || getApplication().getRegistries() == null || getApplication().getRegistries().isEmpty())) {
+        if (CollectionUtils.isEmpty(getRegistries())
+                && (getConsumer() == null || CollectionUtils.isEmpty(getConsumer().getRegistries()))
+                && (getApplication() == null || CollectionUtils.isEmpty(getApplication().getRegistries()))) {
             Map<String, RegistryConfig> registryConfigMap = applicationContext == null ? null : BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, RegistryConfig.class, false, false);
             if (registryConfigMap != null && registryConfigMap.size() > 0) {
                 List<RegistryConfig> registryConfigs = new ArrayList<>();
-                if (StringUtils.isNotEmpty(registryLiteral)) {
-                    Arrays.stream(Constants.COMMA_SPLIT_PATTERN.split(registryLiteral)).forEach(registryLiteral -> {
-                        if (registryConfigMap.containsKey(registryLiteral)) {
-                            registryConfigs.add(registryConfigMap.get(registryLiteral));
+                if (StringUtils.isNotEmpty(registryIds)) {
+                    Arrays.stream(Constants.COMMA_SPLIT_PATTERN.split(registryIds)).forEach(id -> {
+                        if (registryConfigMap.containsKey(id)) {
+                            registryConfigs.add(registryConfigMap.get(id));
                         }
                     });
                 }
 
                 if (registryConfigs.isEmpty()) {
                     for (RegistryConfig config : registryConfigMap.values()) {
-                        if (StringUtils.isEmpty(registryLiteral)) {
+                        if (StringUtils.isEmpty(registryIds)) {
                             registryConfigs.add(config);
                         }
                     }
@@ -188,13 +187,12 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
             }
         }
 
-
-        if (getRegistryDataConfig() == null) {
-            Map<String, RegistryDataConfig> registryDataConfigMap = applicationContext == null ? null : BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, RegistryDataConfig.class, false, false);
-            if (registryDataConfigMap != null && registryDataConfigMap.size() == 1) {
-                super.setRegistryDataConfig(registryDataConfigMap.values().iterator().next());
-            } else if (registryDataConfigMap != null && registryDataConfigMap.size() > 1) {
-                throw new IllegalStateException("Multiple RegistryData configs: " + registryDataConfigMap);
+        if (getConfigCenter() == null) {
+            Map<String, ConfigCenterConfig> configenterMap = applicationContext == null ? null : BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, ConfigCenterConfig.class, false, false);
+            if (configenterMap != null && configenterMap.size() == 1) {
+                super.setConfigCenter(configenterMap.values().iterator().next());
+            } else if (configenterMap != null && configenterMap.size() > 1) {
+                throw new IllegalStateException("Multiple ConfigCenter found:" + configenterMap);
             }
         }
 

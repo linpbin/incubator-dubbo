@@ -20,6 +20,7 @@ import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.logger.Logger;
 import org.apache.dubbo.common.logger.LoggerFactory;
+import org.apache.dubbo.common.utils.CollectionUtils;
 import org.apache.dubbo.common.utils.NetUtils;
 import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.common.utils.UrlUtils;
@@ -44,14 +45,18 @@ import java.util.regex.Pattern;
  *
  */
 public class ConditionRouter extends AbstractRouter implements Comparable<Router> {
-    public static final String NAME = "CONDITION_ROUTER";
+    public static final String NAME = "condition";
+
     private static final Logger logger = LoggerFactory.getLogger(ConditionRouter.class);
     protected static Pattern ROUTE_PATTERN = Pattern.compile("([&!=,]*)\\s*([^&!=,\\s]+)");
     protected Map<String, MatchPair> whenCondition;
     protected Map<String, MatchPair> thenCondition;
 
-    public ConditionRouter(String rule, boolean force) {
+    private boolean enabled;
+
+    public ConditionRouter(String rule, boolean force, boolean enabled) {
         this.force = force;
+        this.enabled = enabled;
         this.init(rule);
     }
 
@@ -59,6 +64,7 @@ public class ConditionRouter extends AbstractRouter implements Comparable<Router
         this.url = url;
         this.priority = url.getParameter(Constants.PRIORITY_KEY, 0);
         this.force = url.getParameter(Constants.FORCE_KEY, false);
+        this.enabled = url.getParameter(Constants.ENABLED_KEY, true);
         init(url.getParameterAndDecoded(Constants.RULE_KEY));
     }
 
@@ -96,7 +102,7 @@ public class ConditionRouter extends AbstractRouter implements Comparable<Router
             String separator = matcher.group(1);
             String content = matcher.group(2);
             // Start part of the condition expression.
-            if (separator == null || separator.length() == 0) {
+            if (StringUtils.isEmpty(separator)) {
                 pair = new MatchPair();
                 condition.put(content, pair);
             }
@@ -154,11 +160,11 @@ public class ConditionRouter extends AbstractRouter implements Comparable<Router
     @Override
     public <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation)
             throws RpcException {
-        if (!isEnabled()) {
+        if (!enabled) {
             return invokers;
         }
 
-        if (invokers == null || invokers.isEmpty()) {
+        if (CollectionUtils.isEmpty(invokers)) {
             return invokers;
         }
         try {
@@ -195,21 +201,16 @@ public class ConditionRouter extends AbstractRouter implements Comparable<Router
     }
 
     @Override
-    public boolean isEnabled() {
-        return url == null ? enabled : url.getParameter(Constants.ENABLED_KEY, true);
-    }
-
-    @Override
     public URL getUrl() {
         return url;
     }
 
     boolean matchWhen(URL url, Invocation invocation) {
-        return whenCondition == null || whenCondition.isEmpty() || matchCondition(whenCondition, url, null, invocation);
+        return CollectionUtils.isEmptyMap(whenCondition) || matchCondition(whenCondition, url, null, invocation);
     }
 
     private boolean matchThen(URL url, URL param) {
-        return !(thenCondition == null || thenCondition.isEmpty()) && matchCondition(thenCondition, url, param, null);
+        return CollectionUtils.isNotEmptyMap(thenCondition) && matchCondition(thenCondition, url, param, null);
     }
 
     private boolean matchCondition(Map<String, MatchPair> condition, URL url, URL param, Invocation invocation) {
